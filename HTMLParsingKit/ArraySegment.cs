@@ -3,26 +3,27 @@
 class ArraySegment<T>
 {
     private T[] _arr;
-    private int start;
-    private int end;
+    private int _start;
+    private int _end;
 
-    public int Length => end - start;
+    public int Length => _end - _start;
 
     public ArraySegment(T[] arr)
     {
         _arr = arr;
-        start = 0;
-        end = arr.Length;
+        _start = 0;
+        _end = arr.Length;
     }
 
-    private ArraySegment(ArraySegment<T> arr, int offset, int length)
+    private ArraySegment(ArraySegment<T> parrent, int offset, int length)
     {
-        _arr = arr._arr;
-        start = arr.start + offset;
-        end = start + length;
+        _arr = parrent._arr;
+        _start = parrent._start + offset;
+        _end = _start + length;
 
-        start = Math.Clamp(start, 0, _arr.Length);
-        end = Math.Clamp(end, 0, _arr.Length);
+        // Can not make a new segment outside of the parrents segment
+        _start = Math.Clamp(_start, parrent._start, parrent._end);
+        _end = Math.Clamp(_end, parrent._start, parrent._end);
     }
 
     public ArraySegment<T> Take(int count)
@@ -67,7 +68,7 @@ class ArraySegment<T>
     public T[] ToArray()
     {
         T[] result = new T[Length];
-        Array.Copy(_arr, start, result, 0, Length);
+        Array.Copy(_arr, _start, result, 0, Length);
         return result;
     }
 
@@ -75,11 +76,11 @@ class ArraySegment<T>
     {
         get
         {
-            int index = param + start;
+            int index = param + _start;
 
-            if (index >= end)
+            if (index >= _end)
                 throw new IndexOutOfRangeException();
-            if (index < start)
+            if (index < _start)
                 throw new IndexOutOfRangeException();
 
             return _arr[index];
