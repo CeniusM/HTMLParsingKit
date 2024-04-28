@@ -1,6 +1,6 @@
 ﻿namespace HTMLParsingKit;
 
-class ArraySegment<T>
+public class ArraySegment<T>
 {
     private T[] _arr;
     private int _start;
@@ -17,6 +17,9 @@ class ArraySegment<T>
 
     private ArraySegment(ArraySegment<T> parrent, int offset, int length)
     {
+        if (length < 0)
+            throw new ArgumentOutOfRangeException($"{nameof(length)} can not be below 0");
+
         _arr = parrent._arr;
         _start = parrent._start + offset;
         _end = _start + length;
