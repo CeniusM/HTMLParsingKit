@@ -108,6 +108,7 @@ public static class HTMLRepairMan
     private static void Warning() => Console.ForegroundColor = ConsoleColor.Yellow;
     private static void Error() => Console.ForegroundColor = ConsoleColor.Red;
 
+    // NOTE* should also look for an un even number of a certain tag. open to closing tag
     public static void DebugHTML(string html)
     {
         ArraySegment<char> arr = new ArraySegment<char>(html.ToArray());
