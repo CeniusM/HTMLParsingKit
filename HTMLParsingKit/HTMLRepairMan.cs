@@ -1,0 +1,185 @@
+﻿namespace HTMLParsingKit;
+
+// Helps to check for edge cases like using <p> and <p>, wich is not self enclosing, and the closing tag does not have /
+public static class HTMLRepairMan
+{
+    // An attempt at fixing invalid html
+    public static string Repair(string html)
+    {
+        List<char> list = [.. html];
+
+        var placesToAddSlash = RepairNonSelfEnclosingTags(new ArraySegment<char>([.. list]));
+
+        int offset = 0;
+
+        foreach (var index in placesToAddSlash)
+        {
+            list.Insert(index + offset + 1, '/');
+
+            offset++;
+        }
+
+        return new string(list.ToArray());
+    }
+
+    private static List<int> RepairNonSelfEnclosingTags(ArraySegment<char> arr)
+    {
+        // This simply looks at what tags is not self enclosing
+        // but does not have any closing tags like <p> content <p>
+
+        // We just try and add slash to every other <p> and add a slash
+
+        List<int> closingTagsToAdd = new List<int>();
+
+        var invalidTags = TagsUsed(arr)
+            .Where(x => !x.Value)
+            .Select(x => x.Key)
+            .Where(x => !HTMLParser.SelfEnclosedTags.Contains(x))
+            .ToArray();
+
+        foreach (var tag in invalidTags)
+        {
+            ArraySegment<char> tagSegment = new ArraySegment<char>([.. tag]);
+
+            bool inQuotes = false;
+            bool inComment = false;
+            bool isSecond = false;
+
+            for (int i = 0; i < arr.Length; i++)
+            {
+                ArraySegment<char> current = arr.Skip(i);
+
+                if (current[0] == '"')
+                {
+                    inQuotes = !inQuotes;
+                    continue;
+                }
+
+                if (inComment)
+                {
+                    if (current.Take(HTMLParser.CommentEnd.Length).IsMatch(HTMLParser.CommentEnd))
+                    {
+                        inComment = false;
+                        continue;
+                    }
+                }
+                else
+                {
+                    if (current.Take(HTMLParser.CommentStart.Length).IsMatch(HTMLParser.CommentStart))
+                    {
+                        inComment = true;
+                        continue;
+                    }
+                }
+
+                if (inQuotes || inComment)
+                {
+                    continue;
+                }
+
+                if (current[0] != '<')
+                {
+                    continue;
+                }
+
+                if (current.Skip(1).TakeWhile(HTMLParser.IsValidNameLetter).IsMatch(tagSegment))
+                {
+                    if (isSecond)
+                    {
+                        closingTagsToAdd.Add(i);
+                    }
+
+                    isSecond = !isSecond;
+                }
+            }
+        }
+
+        return closingTagsToAdd;
+    }
+
+    private static void Info() => Console.ForegroundColor = ConsoleColor.Cyan;
+    private static void Good() => Console.ForegroundColor = ConsoleColor.Green;
+    private static void Warning() => Console.ForegroundColor = ConsoleColor.Yellow;
+    private static void Error() => Console.ForegroundColor = ConsoleColor.Red;
+
+    public static void DebugHTML(string html)
+    {
+        ArraySegment<char> arr = new ArraySegment<char>(html.ToArray());
+
+        var tagsUsed = TagsUsed(arr);
+
+        Info();
+        Console.WriteLine("Tags used: ");
+        foreach (var (key, slash) in tagsUsed)
+        {
+            Console.Write(key);
+
+            if (slash)
+                Console.Write(" ++");
+
+            Console.WriteLine();
+        }
+
+        var weirdTags = tagsUsed
+            .Where(x => !x.Value)
+            .Select(x => x.Key)
+            .Where(x => !HTMLParser.SelfEnclosedTags.Contains(x))
+            .ToArray();
+
+        if (weirdTags.Length == 0)
+        {
+            Good();
+            Console.WriteLine("No weird tags");
+        }
+        else
+        {
+            Error();
+            Console.WriteLine("Tags that is not self enclosing, yet have no end");
+
+            foreach (var tag in weirdTags)
+            {
+                Console.WriteLine($"{{ {tag} }}");
+            }
+        }
+
+        Console.ResetColor();
+    }
+
+    // DOES NOT IGNORE "" AND COMMENTS
+    private static Dictionary<string, bool> TagsUsed(ArraySegment<char> arr)
+    {
+        Dictionary<string, bool> tags = new Dictionary<string, bool>();
+
+        while (true)
+        {
+            arr = arr.SkipWhile(c => c != '<');
+
+            if (arr.Length == 0)
+                break;
+
+            arr = arr.Skip(1);
+
+            if (arr[0] == '!')
+                continue;
+
+            bool hasSlash = arr[0] == '/';
+
+            if (hasSlash)
+                arr = arr.Skip(1);
+
+            var tag = new string(arr.TakeWhile(HTMLParser.IsValidNameLetter).ToArray());
+
+            if (tags.ContainsKey(tag))
+            {
+                if (hasSlash)
+                    tags[tag] = true;
+
+                continue;
+            }
+
+            tags.Add(tag, hasSlash);
+        }
+
+        return tags;
+    }
+}
