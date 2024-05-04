@@ -87,8 +87,9 @@ public static class HTMLRepairMan
 
                 bool isTag = current.Skip(1).TakeWhile(HTMLParser.IsValidNameLetter).IsMatch(tagSegment);
                 bool isClearTag = current.Take(defaultClearTags.Length).IsMatch(defaultClearTags);
+                bool isClosingTag = current.Take(2).IsMatch(new ArraySegment<char>([.. "</"]));
 
-                if (isTag || isClearTag)
+                if (isTag || isClearTag || isClosingTag)
                 {
                     if (isInsideTag)
                     {

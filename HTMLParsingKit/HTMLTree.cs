@@ -62,9 +62,19 @@ public class Element
         return new string(Content.ToArray());
     }
 
+    public Element FirstChildOrSelf()
+    {
+        return IfAnyChildAtIndexOrSelf(0);
+    }
+
+    public Element IfAnyChildAtIndexOrSelf(int index)
+    {
+        return Children.Count == 0 ? this : Children[index];
+    }
+
     public override string ToString()
     {
-        return $"{Name} -> {Children.Count}";
+        return $"{Name} -> {Children.Count} : {(ContainsAttribute("class") ? GetAttribute("class") : "?")}";
     }
 }
 
