@@ -57,6 +57,11 @@ public class Element
         return ContainsAttribute("class") && GetAttribute("class") == str;
     }
 
+    public string ContentToString()
+    {
+        return new string(Content.ToArray());
+    }
+
     public override string ToString()
     {
         return $"{Name} -> {Children.Count}";
