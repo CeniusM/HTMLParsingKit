@@ -1,13 +1,23 @@
 ﻿namespace HTMLParsingKit;
 
-class HTMLParser
+public static class HTMLParser
 {
     public static readonly string[] SelfEnclosedTags = ["!DOCTYPE", "br", "img", "link", "meta", "input", "hr", "area"];
 
-    public static readonly string[] UnsupportedTags = ["script"];
+    public static readonly string[] UnsupportedTags = [];
+
+    private static readonly ArraySegment<char> CommentStart = new ArraySegment<char>("<!--".ToArray());
+    private static readonly ArraySegment<char> CommentEnd = new ArraySegment<char>("-->".ToArray());
+
+    private static readonly ArraySegment<char> ScriptStart = new ArraySegment<char>("<script".ToArray());
+    private static readonly ArraySegment<char> ScriptEnd = new ArraySegment<char>("/script>".ToArray());
+
+    public static string DebugString = "";
 
     public static List<Element> GenerateTree(string str)
     {
+        DebugString = str;
+        //Console.Clear();
         return ParseElements(new ArraySegment<char>(str.ToCharArray())).elements;
     }
 
@@ -24,8 +34,16 @@ class HTMLParser
         // Loop over tags
         while (true)
         {
+            // Debugging
+            //int til = DebugString.Length - arr.Length;
+            //Console.SetCursorPosition(0, 0);
+            //Console.ForegroundColor = ConsoleColor.Green;
+            //Console.Write(DebugString.Take(til).ToArray());
+            //Console.ForegroundColor = ConsoleColor.Red;
+            //Console.Write(DebugString.Skip(til).ToArray());
+
             // Move to next tag
-            arr = GoToNext(arr, '<', ref skipped);
+            arr = SkipToNext(arr, '<', ref skipped);
 
             // Leave if nothing left
             if (arr.Length == 0)
@@ -33,25 +51,24 @@ class HTMLParser
                 return (skipped, elements);
             }
 
-            // This should also be done with script....
-            if (arr[0] == '<' && arr[1] == '!' && arr[2] == '-' && arr[3] == '-')
+            // Skip comments
+            if (arr.Take(CommentStart.Length).IsMatch(CommentStart))
             {
-                // <!--comment-->
+                arr = Skip(arr, CommentStart.Length, ref skipped, out _);
 
-                int commentSize = 3;
-
-                while (
-                    arr[commentSize + 0] != '-' ||
-                    arr[commentSize + 1] != '-' ||
-                    arr[commentSize + 2] != '>'
-                    )
-                    commentSize++;
-
-                commentSize += 3;
-
-                arr = Skip(arr, commentSize, ref skipped, out var comment);
+                arr = SkipToMatch(arr, CommentEnd, ref skipped, out _);
 
                 // Skipped comment and try again
+                continue;
+            }
+
+            // For now we also skip script
+            if (arr.Take(ScriptStart.Length).IsMatch(ScriptStart))
+            {
+                arr = Skip(arr, ScriptStart.Length, ref skipped, out _);
+
+                arr = SkipToMatch(arr, ScriptEnd, ref skipped, out _);
+
                 continue;
             }
 
@@ -62,7 +79,7 @@ class HTMLParser
             }
 
             // Now parse the current element
-            string tagName = SegmentAsString(TextSearch.Word(arr, 1));
+            string tagName = SegmentAsString(arr.Skip(1).TakeWhile(c => char.IsLetterOrDigit(c) || c == '!'));
 
             if (UnsupportedTags.Contains(tagName))
                 throw new Exception($"Unsupported tag: {tagName}");
@@ -71,9 +88,16 @@ class HTMLParser
 
             arr = Skip(arr, tagLength, ref skipped, out var openingTag);
 
-            // Skip if tag is self enclosing
+            // If it is selfinclosing we skip the search
             if (SelfEnclosedTags.Contains(tagName))
             {
+                elements.Add(
+                    new Element(
+                        tagName,
+                        tagName == "!DOCTYPE" ? new List<TagAttribute>() : ParseOpeningTagAttributes(openingTag),
+                        openingTag,
+                        new List<Element>()));
+
                 continue;
             }
 
@@ -92,43 +116,86 @@ class HTMLParser
                 new Element(
                     tagName,
                     ParseOpeningTagAttributes(openingTag),
-                    arr,
+                    content,
                     search.elements));
         }
     }
 
     private static List<TagAttribute> ParseOpeningTagAttributes(ArraySegment<char> arr)
     {
+        string div = SegmentAsString(arr);
+
         var result = new List<TagAttribute>();
 
         arr = arr
-            .Skip(TextSearch.Length(arr, 1, char.IsLetterOrDigit) + 2)
+            .Skip(TextSearch.Length(arr, 1, char.IsLetterOrDigit) + 1)
             .SkipLast(1);
 
         while (arr.Length > 0)
         {
-            int attNameSize = TextSearch.Length(arr, 0, (c) => char.IsLetterOrDigit(c) || c == '-');
+            arr = arr.SkipWhile(char.IsWhiteSpace);
+
+            if (arr.Length == 0)
+                break;
+
+            if (arr.Length == 1 && arr[0] == '/')
+                break;
+
+            int attNameSize = TextSearch.Length(arr, 0, (c) => char.IsLetterOrDigit(c) || c == '-' || c == '!');
+
+            if (new ArraySegment<char>("src".ToArray()).IsMatch(arr.Take(attNameSize)))
+            {
+                Console.WriteLine("Welp");
+            }
+
+            var attNameSkipped = arr.Skip(attNameSize);
+            bool hasValue = attNameSkipped.Length != 0 && attNameSkipped[0] == '=';
+
+            if (!hasValue)
+            {
+                result.Add(new TagAttribute(
+                    SegmentAsString(arr.Take(attNameSize)),
+                    ""
+                    ));
+
+                arr = attNameSkipped;
+
+                continue;
+            }
+
+            var skipSegment = attNameSkipped
+                .SkipWhile(char.IsWhiteSpace)
+                .Skip(1)
+                .SkipWhile(char.IsWhiteSpace);
+
+            // value=
+            // or
+            // value="
+            bool isStr = skipSegment[0] == '"';
+
+            int skipSize = arr.Length - skipSegment.Length - attNameSize + (isStr ? 1 : 0);
 
             int valueSize = arr
-                .Skip(attNameSize + 2)
-                .TakeWhile(c => c != '"')
+                .Skip(attNameSize + skipSize)
+                .TakeWhile(c => isStr ? c != '"' : c != ' ')
                 .Length;
 
             result.Add(new TagAttribute(
                 SegmentAsString(arr.Take(attNameSize)),
-                SegmentAsString(arr.Skip(attNameSize + 2).Take(valueSize))
+                SegmentAsString(arr.Skip(attNameSize + skipSize).Take(valueSize))
                 ));
 
-            int stride = attNameSize + valueSize + 3;
-            arr = arr.Skip(stride).SkipWhile(char.IsWhiteSpace);
+            int stride = attNameSize + valueSize + skipSize + (isStr ? 1 : 0);
+
+            arr = arr.Skip(stride);
         }
 
         return result;
     }
 
-    private static ArraySegment<char> GoToNext(ArraySegment<char> arr, char end, ref int skipped)
+    private static ArraySegment<char> SkipToNext(ArraySegment<char> arr, char end, ref int skipped)
     {
-        int length = arr.SkipWhile(c => c != end).Length;
+        int length = arr.TakeWhile(c => c != end).Length;
 
         skipped += length;
 
@@ -142,6 +209,20 @@ class HTMLParser
         skipped += length;
 
         return arr.Skip(length);
+    }
+
+    private static ArraySegment<char> SkipToMatch(ArraySegment<char> arr, ArraySegment<char> match, ref int skipped, out ArraySegment<char> cut)
+    {
+        int length = 0;
+
+        while (!arr.Skip(length).Take(match.Length).IsMatch(match))
+            length++;
+
+        length += match.Length;
+
+        cut = arr.Take(length);
+
+        return Skip(arr, length, ref skipped, out _);
     }
 
     // Finds the length to next >, that is not inside " "
