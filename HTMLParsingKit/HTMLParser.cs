@@ -2,7 +2,7 @@
 
 class HTMLParser
 {
-    public static readonly string[] SelfEnclosedTags = ["br", "img", "link", "meta", "input", "hr", "area"];
+    public static readonly string[] SelfEnclosedTags = ["!DOCTYPE", "br", "img", "link", "meta", "input", "hr", "area"];
 
     public static readonly string[] UnsupportedTags = ["script"];
 
