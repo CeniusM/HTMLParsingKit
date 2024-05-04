@@ -4,15 +4,21 @@ public static class HTMLParser
 {
     public static readonly char[] ValidNameLetters = ['!', '_', '-'];
 
-    public static readonly string[] SelfEnclosedTags = ["!DOCTYPE", "br", "img", "link", "meta", "input", "hr", "area", "p"];
+    public static readonly string[] SelfEnclosedTags =
+        ["!DOCTYPE", "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"];
 
     public static readonly string[] UnsupportedTags = [];
 
-    private static readonly ArraySegment<char> CommentStart = new ArraySegment<char>("<!--".ToArray());
-    private static readonly ArraySegment<char> CommentEnd = new ArraySegment<char>("-->".ToArray());
+    internal static readonly ArraySegment<char> CommentStart = new ArraySegment<char>("<!--".ToArray());
+    internal static readonly ArraySegment<char> CommentEnd = new ArraySegment<char>("-->".ToArray());
 
-    private static readonly ArraySegment<char> ScriptStart = new ArraySegment<char>("<script".ToArray());
-    private static readonly ArraySegment<char> ScriptEnd = new ArraySegment<char>("</script>".ToArray());
+    internal static readonly ArraySegment<char> ScriptStart = new ArraySegment<char>("<script".ToArray());
+    internal static readonly ArraySegment<char> ScriptEnd = new ArraySegment<char>("</script>".ToArray());
+
+    public static bool IsValidNameLetter(char c)
+    {
+        return char.IsLetterOrDigit(c) || ValidNameLetters.Contains(c);
+    }
 
     public static List<Element> GenerateTree(string str)
     {
@@ -82,7 +88,7 @@ public static class HTMLParser
             }
 
             // Now parse the current element
-            string tagName = SegmentAsString(arr.Skip(1).TakeWhile(c => char.IsLetterOrDigit(c) || ValidNameLetters.Contains(c)));
+            string tagName = SegmentAsString(arr.Skip(1).TakeWhile(IsValidNameLetter));
 
             if (UnsupportedTags.Contains(tagName))
                 throw new Exception($"Unsupported tag: {tagName}");
@@ -131,7 +137,7 @@ public static class HTMLParser
         var result = new List<TagAttribute>();
 
         arr = arr
-            .Skip(TextSearch.Length(arr, 1, c => char.IsLetterOrDigit(c) || ValidNameLetters.Contains(c)) + 1)
+            .Skip(TextSearch.Length(arr, 1, IsValidNameLetter) + 1)
             .SkipLast(1);
 
         while (arr.Length > 0)
@@ -144,7 +150,7 @@ public static class HTMLParser
             if (arr.Length == 1 && arr[0] == '/')
                 break;
 
-            int attNameSize = TextSearch.Length(arr, 0, c => char.IsLetterOrDigit(c) || ValidNameLetters.Contains(c));
+            int attNameSize = TextSearch.Length(arr, 0, IsValidNameLetter);
 
             var attNameSkipped = arr.Skip(attNameSize);
             bool hasValue = attNameSkipped.Length != 0 && attNameSkipped[0] == '=';
