@@ -1,6 +1,6 @@
 ﻿namespace HTMLParsingKit;
 
-class TagAttribute
+public class TagAttribute
 {
     public string Name;
     public string Value;
@@ -17,7 +17,7 @@ class TagAttribute
     }
 }
 
-class Element
+public class Element
 {
     public string Name;
     public List<TagAttribute> Attributes;
@@ -55,6 +55,6 @@ class Element
     }
 }
 
-class HTMLTree
-{
-}
+//class HTMLTree
+//{
+//}
