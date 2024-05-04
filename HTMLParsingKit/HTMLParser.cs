@@ -2,7 +2,7 @@
 
 public static class HTMLParser
 {
-    public static readonly string[] SelfEnclosedTags = ["!DOCTYPE", "br", "img", "link", "meta", "input", "hr", "area"];
+    public static readonly string[] SelfEnclosedTags = ["!DOCTYPE", "br", "img", "link", "meta", "input", "hr", "area", "p"];
 
     public static readonly string[] UnsupportedTags = [];
 
@@ -12,12 +12,8 @@ public static class HTMLParser
     private static readonly ArraySegment<char> ScriptStart = new ArraySegment<char>("<script".ToArray());
     private static readonly ArraySegment<char> ScriptEnd = new ArraySegment<char>("/script>".ToArray());
 
-    public static string DebugString = "";
-
     public static List<Element> GenerateTree(string str)
     {
-        DebugString = str;
-        //Console.Clear();
         return ParseElements(new ArraySegment<char>(str.ToCharArray())).elements;
     }
 
@@ -34,14 +30,6 @@ public static class HTMLParser
         // Loop over tags
         while (true)
         {
-            // Debugging
-            //int til = DebugString.Length - arr.Length;
-            //Console.SetCursorPosition(0, 0);
-            //Console.ForegroundColor = ConsoleColor.Green;
-            //Console.Write(DebugString.Take(til).ToArray());
-            //Console.ForegroundColor = ConsoleColor.Red;
-            //Console.Write(DebugString.Skip(til).ToArray());
-
             // Move to next tag
             arr = SkipToNext(arr, '<', ref skipped);
 
@@ -68,6 +56,13 @@ public static class HTMLParser
                 arr = Skip(arr, ScriptStart.Length, ref skipped, out _);
 
                 arr = SkipToMatch(arr, ScriptEnd, ref skipped, out _);
+
+                elements.Add(
+                    new Element(
+                        "script",
+                        new List<TagAttribute>(),
+                        new ArraySegment<char>([]),
+                        new List<Element>()));
 
                 continue;
             }
@@ -142,11 +137,6 @@ public static class HTMLParser
                 break;
 
             int attNameSize = TextSearch.Length(arr, 0, (c) => char.IsLetterOrDigit(c) || c == '-' || c == '!');
-
-            if (new ArraySegment<char>("src".ToArray()).IsMatch(arr.Take(attNameSize)))
-            {
-                Console.WriteLine("Welp");
-            }
 
             var attNameSkipped = arr.Skip(attNameSize);
             bool hasValue = attNameSkipped.Length != 0 && attNameSkipped[0] == '=';
