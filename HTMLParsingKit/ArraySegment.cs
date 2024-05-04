@@ -68,6 +68,30 @@ public class ArraySegment<T>
         return Take(offset);
     }
 
+    // Checks if the segment is equal
+    public bool IsMatch(ArraySegment<T> segment)
+    {
+        if (Length != segment.Length)
+            return false;
+
+        for (int i = 0; i < Length; i++)
+        {
+            T first = this[i];
+            T second = segment[i];
+
+            if (first is null && second is null)
+                continue;
+
+            if (first is null)
+                return false;
+
+            if (!first.Equals(second))
+                return false;
+        }
+
+        return true;
+    }
+
     public T[] ToArray()
     {
         T[] result = new T[Length];
@@ -88,5 +112,10 @@ public class ArraySegment<T>
 
             return _arr[index];
         }
+    }
+
+    public override string ToString()
+    {
+        return $"({Length}): {string.Join(", ", ToArray())}";
     }
 }
