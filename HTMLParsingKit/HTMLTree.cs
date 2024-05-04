@@ -52,6 +52,11 @@ public class Element
         return Attributes.Find(x => x.Name == att)!.Value;
     }
 
+    public bool IsClass(string str)
+    {
+        return ContainsAttribute("class") && GetAttribute("class") == str;
+    }
+
     public override string ToString()
     {
         return $"{Name} -> {Children.Count}";
