@@ -11,7 +11,7 @@ class TextSearch
     {
         int index = start;
 
-        while (IsCharValid(buffer[index]) && index <= buffer.Length)
+        while (index < buffer.Length && IsCharValid(buffer[index]))
         {
             index++;
         }
