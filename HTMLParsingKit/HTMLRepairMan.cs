@@ -10,26 +10,34 @@ public static class HTMLRepairMan
 
         var placesToAddSlash = RepairNonSelfEnclosingTags(new ArraySegment<char>([.. list]));
 
+        placesToAddSlash.Sort((x, y) => x.Item1 - y.Item1);
+
         int offset = 0;
 
-        foreach (var index in placesToAddSlash)
+        foreach (var (index, tag) in placesToAddSlash)
         {
-            list.Insert(index + offset + 1, '/');
+            char[] insert = [.. "</", .. tag, .. ">"];
 
-            offset++;
+            list.InsertRange(index + offset, insert);
+
+            int length = insert.Length;
+
+            offset += length;
         }
 
         return new string(list.ToArray());
     }
 
-    private static List<int> RepairNonSelfEnclosingTags(ArraySegment<char> arr)
+    private static List<(int, char[])> RepairNonSelfEnclosingTags(ArraySegment<char> arr)
     {
         // This simply looks at what tags is not self enclosing
         // but does not have any closing tags like <p> content <p>
 
-        // We just try and add slash to every other <p> and add a slash
+        // We just try and add a closing tag before the next tag or default clear tag (wich does not look at syntax...)
 
-        List<int> closingTagsToAdd = new List<int>();
+        // Ignores "
+
+        List<(int, char[])> closingTagsToAdd = new List<(int, char[])>();
 
         var invalidTags = TagsUsed(arr)
             .Where(x => !x.Value)
@@ -37,23 +45,18 @@ public static class HTMLRepairMan
             .Where(x => !HTMLParser.SelfEnclosedTags.Contains(x))
             .ToArray();
 
+        ArraySegment<char> defaultClearTags = new ArraySegment<char>([.. "<div class=clear>"]);
+
         foreach (var tag in invalidTags)
         {
             ArraySegment<char> tagSegment = new ArraySegment<char>([.. tag]);
 
-            bool inQuotes = false;
             bool inComment = false;
-            bool isSecond = false;
+            bool isInsideTag = false;
 
             for (int i = 0; i < arr.Length; i++)
             {
                 ArraySegment<char> current = arr.Skip(i);
-
-                if (current[0] == '"')
-                {
-                    inQuotes = !inQuotes;
-                    continue;
-                }
 
                 if (inComment)
                 {
@@ -72,7 +75,7 @@ public static class HTMLRepairMan
                     }
                 }
 
-                if (inQuotes || inComment)
+                if (inComment)
                 {
                     continue;
                 }
@@ -82,14 +85,17 @@ public static class HTMLRepairMan
                     continue;
                 }
 
-                if (current.Skip(1).TakeWhile(HTMLParser.IsValidNameLetter).IsMatch(tagSegment))
+                bool isTag = current.Skip(1).TakeWhile(HTMLParser.IsValidNameLetter).IsMatch(tagSegment);
+                bool isClearTag = current.Take(defaultClearTags.Length).IsMatch(defaultClearTags);
+
+                if (isTag || isClearTag)
                 {
-                    if (isSecond)
+                    if (isInsideTag)
                     {
-                        closingTagsToAdd.Add(i);
+                        closingTagsToAdd.Add((i, tag.ToArray()));
                     }
 
-                    isSecond = !isSecond;
+                    isInsideTag = isTag; // else was clear
                 }
             }
         }
@@ -112,12 +118,10 @@ public static class HTMLRepairMan
         Console.WriteLine("Tags used: ");
         foreach (var (key, slash) in tagsUsed)
         {
-            Console.Write(key);
-
             if (slash)
-                Console.Write(" ++");
+                Console.Write("++");
 
-            Console.WriteLine();
+            Console.WriteLine(key);
         }
 
         var weirdTags = tagsUsed
