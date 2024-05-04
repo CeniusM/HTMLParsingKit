@@ -13,7 +13,10 @@ public class TagAttribute
 
     public override string ToString()
     {
-        return $"{Name}=\"{Value}\"";
+        if (Value == "")
+            return Name;
+        else
+            return $"{Name}=\"{Value}\"";
     }
 }
 

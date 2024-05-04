@@ -10,7 +10,7 @@ public static class HTMLParser
     private static readonly ArraySegment<char> CommentEnd = new ArraySegment<char>("-->".ToArray());
 
     private static readonly ArraySegment<char> ScriptStart = new ArraySegment<char>("<script".ToArray());
-    private static readonly ArraySegment<char> ScriptEnd = new ArraySegment<char>("/script>".ToArray());
+    private static readonly ArraySegment<char> ScriptEnd = new ArraySegment<char>("</script>".ToArray());
 
     public static List<Element> GenerateTree(string str)
     {
@@ -44,7 +44,9 @@ public static class HTMLParser
             {
                 arr = Skip(arr, CommentStart.Length, ref skipped, out _);
 
-                arr = SkipToMatch(arr, CommentEnd, ref skipped, out _);
+                arr = SkipTillMatch(arr, CommentEnd, ref skipped, out _);
+
+                arr = Skip(arr, CommentEnd.Length, ref skipped, out _);
 
                 // Skipped comment and try again
                 continue;
@@ -53,15 +55,19 @@ public static class HTMLParser
             // For now we also skip script
             if (arr.Take(ScriptStart.Length).IsMatch(ScriptStart))
             {
-                arr = Skip(arr, ScriptStart.Length, ref skipped, out _);
+                int scriptTagLength = TagLength(arr, 0);
 
-                arr = SkipToMatch(arr, ScriptEnd, ref skipped, out _);
+                arr = Skip(arr, scriptTagLength, ref skipped, out var openingScriptTag);
+
+                arr = SkipTillMatch(arr, ScriptEnd, ref skipped, out var scriptContent);
+
+                arr = Skip(arr, ScriptEnd.Length, ref skipped, out var closingScriptTag);
 
                 elements.Add(
                     new Element(
                         "script",
-                        new List<TagAttribute>(),
-                        new ArraySegment<char>([]),
+                        ParseOpeningTagAttributes(openingScriptTag),
+                        scriptContent,
                         new List<Element>()));
 
                 continue;
@@ -201,14 +207,12 @@ public static class HTMLParser
         return arr.Skip(length);
     }
 
-    private static ArraySegment<char> SkipToMatch(ArraySegment<char> arr, ArraySegment<char> match, ref int skipped, out ArraySegment<char> cut)
+    private static ArraySegment<char> SkipTillMatch(ArraySegment<char> arr, ArraySegment<char> match, ref int skipped, out ArraySegment<char> cut)
     {
         int length = 0;
 
         while (!arr.Skip(length).Take(match.Length).IsMatch(match))
             length++;
-
-        length += match.Length;
 
         cut = arr.Take(length);
 
