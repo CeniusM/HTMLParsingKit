@@ -22,6 +22,8 @@ public static class HTMLParser
 
     public static List<Element> GenerateTree(string str)
     {
+
+        // ADD ROOT AND MAKE THE ELEMENTS HAVE THEIR PARREN PLZ "
         return ParseElements(new ArraySegment<char>(str.ToCharArray())).elements;
     }
 
